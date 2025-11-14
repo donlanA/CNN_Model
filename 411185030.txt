@@ -1,0 +1,10 @@
+0001 airplane
+0002 automobile
+0003 bird
+0004 cat
+0005 deer
+0006 dog
+0007 frog
+0008 horse
+0009 ship
+0010 truck
