@@ -33,6 +33,7 @@ result_file_path = f"cifar100_2levels_result.txt"
 ## Parameters
 total_classes = 100
 folder_level = 2
+num_epochs = 200
 
 ## Mode change
 mode = "test"
@@ -224,7 +225,6 @@ if __name__ == "__main__":
 
     # Training loop
     if mode == "train":
-        num_epochs = 10
         best_val_accuracy = 0.0
         for epoch in range(num_epochs):
             custom_resnet_model.train()
