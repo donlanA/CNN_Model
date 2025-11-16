@@ -9,48 +9,111 @@ from torch.optim.lr_scheduler import MultiStepLR
 os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
 
 ## Paths
-train_path = r".\cifar10\train"
-test_path = r".\cifar10\test"
-actualtest_path = r".\cifar10\actualtest"
+# train_path = r".\mnist_png\training"
+# test_path = r".\mnist_png\testing"
+# actualtest_path = r".\mnist_png\actualtest"
+# result_file_path = f"mnist_result.txt"
 
-result_file_path = f"411185030.txt"
+# train_path = r".\cifar10\train"
+# test_path = r".\cifar10\test"
+# actualtest_path = r".\cifar10\actualtest"
+# result_file_path = f"cifar10_result.txt"
+
+# train_path = r".\CIFAR100\TRAIN"
+# test_path = r".\CIFAR100\TEST"
+# actualtest_path = r".\CIFAR100\ACTUALTEST"
+# result_file_path = f"cifar100_result.txt"
+
+train_path = r".\CIFAR100_2levels\TRAIN"
+test_path = r".\CIFAR100_2levels\TEST"
+actualtest_path = r".\CIFAR100_2levels\ACTUALTEST"
+
+result_file_path = f"cifar100_2levels_result.txt"
+
+## Parameters
+total_classes = 100
+folder_level = 2
 
 ## Mode change
 mode = "test"
 
 ## Loading data
 class CustomImageDataset(Dataset):
-    def __init__(self, img_dir, transform=None):
+    def __init__(self, img_dir, transform=None, folder_level=1):
+        """
+        folder_level=1 -> one level folder: img_dir/class_name/*.png
+        folder_level=2 -> two levels folder: img_dir/super_class/sub_class/*.png
+        """
         self.img_dir = img_dir
         self.transform = transform
-        
-        self.img_files, self.labels = [], []
-        self.class_names = sorted(os.listdir(img_dir))
-        
-        for label, class_name in enumerate(self.class_names):
-            class_dir = os.path.join(img_dir, class_name)
-            if os.path.isdir(class_dir):
-                for img_name in os.listdir(class_dir):
+        self.img_files = []
+        self.labels = []
+        self.class_names = []
+
+        if folder_level == 1:
+            self.class_names = sorted([d for d in os.listdir(img_dir) if os.path.isdir(os.path.join(img_dir, d))])
+            class_to_idx = {name: idx for idx, name in enumerate(self.class_names)}
+
+            for class_name in self.class_names:
+                class_path = os.path.join(img_dir, class_name)
+                for img_name in os.listdir(class_path):
                     if img_name.endswith('.png'):
-                        self.img_files.append(os.path.join(class_dir, img_name))
-                        self.labels.append(label)
-    
+                        self.img_files.append(os.path.join(class_path, img_name))
+                        self.labels.append(class_to_idx[class_name])
+
+        elif folder_level == 2:
+            super_classes = sorted(os.listdir(img_dir))
+            subclass_set = set()
+
+            for super_class in super_classes:
+                super_path = os.path.join(img_dir, super_class)
+                if not os.path.isdir(super_path):
+                    continue
+                for sub_class in sorted(os.listdir(super_path)):
+                    sub_path = os.path.join(super_path, sub_class)
+                    if os.path.isdir(sub_path):
+                        subclass_set.add(sub_class)
+
+            self.class_names = sorted(list(subclass_set))
+            class_to_idx = {name: idx for idx, name in enumerate(self.class_names)}
+
+            for super_class in super_classes:
+                super_path = os.path.join(img_dir, super_class)
+                if not os.path.isdir(super_path):
+                    continue
+                for sub_class in sorted(os.listdir(super_path)):
+                    sub_path = os.path.join(super_path, sub_class)
+                    if os.path.isdir(sub_path):
+                        label = class_to_idx[sub_class]
+                        for img_name in os.listdir(sub_path):
+                            if img_name.endswith('.png'):
+                                self.img_files.append(os.path.join(sub_path, img_name))
+                                self.labels.append(label)
+        else:
+            raise ValueError("folder_level must be 1 or 2")
+
     def __len__(self):
         return len(self.img_files)
 
     def __getitem__(self, idx):
         img_path = self.img_files[idx]
         label = self.labels[idx]
-        
+
         image = Image.open(img_path).convert('RGB')
         if self.transform:
             image = self.transform(image)
-        
+
         return image, label
 
+
 # transformations
-mean = [0.4914, 0.4822, 0.4465]
-std = [0.2023, 0.1994, 0.2010]
+# cifar10
+# mean = [0.4914, 0.4822, 0.4465]
+# std = [0.2023, 0.1994, 0.2010]
+# cifar100
+mean = [0.5071, 0.4867, 0.4408]
+std = [0.2675, 0.2565, 0.2761]
+
 
 train_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),
@@ -64,8 +127,8 @@ test_transform = transforms.Compose([
 ])
                 
 # datasets, dataloaders
-train_dataset = CustomImageDataset(img_dir=train_path, transform=train_transform)
-test_dataset = CustomImageDataset(img_dir=test_path, transform=test_transform)
+train_dataset = CustomImageDataset(img_dir=train_path, transform=train_transform, folder_level=folder_level)
+test_dataset = CustomImageDataset(img_dir=test_path, transform=test_transform, folder_level=folder_level)
 train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=2)
 test_loader = DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
 
@@ -116,7 +179,7 @@ class DownsampleBlock(nn.Module):
         return out
 
 class CustomCNN(nn.Module):
-    def __init__(self, num_classes=10):
+    def __init__(self, num_classes):
         super(CustomCNN, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
@@ -154,14 +217,14 @@ class CustomCNN(nn.Module):
 
 if __name__ == "__main__":
     # Model, Loss, Optimizer, Scheduler
-    custom_resnet_model = CustomCNN(num_classes=10).to(device)
+    custom_resnet_model = CustomCNN(total_classes).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(custom_resnet_model.parameters(), lr=0.05, momentum=0.9)
     scheduler = MultiStepLR(optimizer, milestones=[100, 150], gamma=0.1)
 
     # Training loop
     if mode == "train":
-        num_epochs = 100
+        num_epochs = 10
         best_val_accuracy = 0.0
         for epoch in range(num_epochs):
             custom_resnet_model.train()
@@ -209,20 +272,20 @@ if __name__ == "__main__":
                 print(f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%")
 
                 # save
-                if val_accuracy > best_val_accuracy and val_accuracy >= 80.0:
+                if val_accuracy > best_val_accuracy:
                     best_val_accuracy = val_accuracy
-                    torch.save(custom_resnet_model.state_dict(), "best_model.pth")
+                    torch.save(custom_resnet_model.state_dict(), "cifar100_best_model.pth")
                     print(f"New best accuracy: {best_val_accuracy:.2f}%, model saved.")
                 else:
                     print(f"No improvement (Best: {best_val_accuracy:.2f}%)")
 
     elif mode == "test":
-        custom_resnet_model.load_state_dict(torch.load("best_model.pth"))
+        custom_resnet_model.load_state_dict(torch.load("cifar100_best_model.pth"))
         custom_resnet_model.eval()
 
         predictions = []
 
-        # 使用 train_dataset 裡的 class_names
+        #  class_names in train_dataset
         class_names = train_dataset.class_names
 
         with torch.no_grad():
