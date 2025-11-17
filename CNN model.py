@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
+from collections import Counter
 os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
 
 ## Paths
@@ -14,84 +15,88 @@ os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
 # actualtest_path = r".\mnist_png\actualtest"
 # result_file_path = f"mnist_result.txt"
 
-# train_path = r".\cifar10\train"
-# test_path = r".\cifar10\test"
-# actualtest_path = r".\cifar10\actualtest"
-# result_file_path = f"cifar10_result.txt"
+train_path = r".\cifar10\train"
+test_path = r".\cifar10\test"
+actualtest_path = r".\cifar10\actualtest"
+result_file_path = f"cifar10_result.txt"
 
 # train_path = r".\CIFAR100\TRAIN"
 # test_path = r".\CIFAR100\TEST"
 # actualtest_path = r".\CIFAR100\ACTUALTEST"
 # result_file_path = f"cifar100_result.txt"
 
-train_path = r".\CIFAR100_2levels\TRAIN"
-test_path = r".\CIFAR100_2levels\TEST"
-actualtest_path = r".\CIFAR100_2levels\ACTUALTEST"
-
-result_file_path = f"cifar100_2levels_result.txt"
+# train_path = r".\CIFAR100_2levels\TRAIN"
+# test_path = r".\CIFAR100_2levels\TEST"
+# actualtest_path = r".\CIFAR100_2levels\ACTUALTEST"
+# result_file_path = f"cifar100_2levels_result.txt"
 
 ## Parameters
-total_classes = 100
-folder_level = 2
-num_epochs = 200
+total_classes = 10
+folder_level = 1
+num_epochs = 10
 
 ## Mode change
-mode = "test"
+mode = "train"
 
 ## Loading data
 class CustomImageDataset(Dataset):
     def __init__(self, img_dir, transform=None, folder_level=1):
-        """
-        folder_level=1 -> one level folder: img_dir/class_name/*.png
-        folder_level=2 -> two levels folder: img_dir/super_class/sub_class/*.png
-        """
+
         self.img_dir = img_dir
         self.transform = transform
+        
         self.img_files = []
         self.labels = []
-        self.class_names = []
 
         if folder_level == 1:
-            self.class_names = sorted([d for d in os.listdir(img_dir) if os.path.isdir(os.path.join(img_dir, d))])
-            class_to_idx = {name: idx for idx, name in enumerate(self.class_names)}
+            class_names = sorted(os.listdir(img_dir))
+            for label, class_name in enumerate(class_names):
+                class_dir = os.path.join(img_dir, class_name)
+                if os.path.isdir(class_dir):
+                    for img_name in os.listdir(class_dir):
+                        if img_name.endswith('.png'):
+                            self.img_files.append(os.path.join(class_dir, img_name))
+                            self.labels.append(label)
 
-            for class_name in self.class_names:
-                class_path = os.path.join(img_dir, class_name)
-                for img_name in os.listdir(class_path):
-                    if img_name.endswith('.png'):
-                        self.img_files.append(os.path.join(class_path, img_name))
-                        self.labels.append(class_to_idx[class_name])
+        # elif folder_level == 2:
+        #     self.class_names = []
 
-        elif folder_level == 2:
-            super_classes = sorted(os.listdir(img_dir))
-            subclass_set = set()
+        #     super_classes = sorted([
+        #         d for d in os.listdir(img_dir)
+        #         if os.path.isdir(os.path.join(img_dir, d))
+        #     ])
 
-            for super_class in super_classes:
-                super_path = os.path.join(img_dir, super_class)
-                if not os.path.isdir(super_path):
-                    continue
-                for sub_class in sorted(os.listdir(super_path)):
-                    sub_path = os.path.join(super_path, sub_class)
-                    if os.path.isdir(sub_path):
-                        subclass_set.add(sub_class)
+        #     for super_class in super_classes:
+        #         super_path = os.path.join(img_dir, super_class)
+        #         sub_classes = sorted([
+        #             d for d in os.listdir(super_path)
+        #             if os.path.isdir(os.path.join(super_path, d))
+        #         ])
+        #         for sub in sub_classes:
+        #             if sub not in self.class_names:
+        #                 self.class_names.append(sub)
 
-            self.class_names = sorted(list(subclass_set))
-            class_to_idx = {name: idx for idx, name in enumerate(self.class_names)}
+        #     class_to_idx = {name: idx for idx, name in enumerate(self.class_names)}
 
-            for super_class in super_classes:
-                super_path = os.path.join(img_dir, super_class)
-                if not os.path.isdir(super_path):
-                    continue
-                for sub_class in sorted(os.listdir(super_path)):
-                    sub_path = os.path.join(super_path, sub_class)
-                    if os.path.isdir(sub_path):
-                        label = class_to_idx[sub_class]
-                        for img_name in os.listdir(sub_path):
-                            if img_name.endswith('.png'):
-                                self.img_files.append(os.path.join(sub_path, img_name))
-                                self.labels.append(label)
-        else:
-            raise ValueError("folder_level must be 1 or 2")
+        #     for super_class in super_classes:
+        #         super_path = os.path.join(img_dir, super_class)
+        #         sub_classes = sorted([
+        #             d for d in os.listdir(super_path)
+        #             if os.path.isdir(os.path.join(super_path, d))
+        #         ])
+
+        #         for sub in sub_classes:
+        #             sub_path = os.path.join(super_path, sub)
+        #             label = class_to_idx[sub]
+
+        #             for img_name in os.listdir(sub_path):
+        #                 if img_name.endswith(".png"):
+        #                     self.img_files.append(os.path.join(sub_path, img_name))
+        #                     self.labels.append(label)
+        # else:
+        #     raise ValueError("folder_level must be 1 or 2")
+        
+        # self.class_names = list(self.class_names)
 
     def __len__(self):
         return len(self.img_files)
@@ -109,11 +114,11 @@ class CustomImageDataset(Dataset):
 
 # transformations
 # cifar10
-# mean = [0.4914, 0.4822, 0.4465]
-# std = [0.2023, 0.1994, 0.2010]
+mean = [0.4914, 0.4822, 0.4465]
+std = [0.2023, 0.1994, 0.2010]
 # cifar100
-mean = [0.5071, 0.4867, 0.4408]
-std = [0.2675, 0.2565, 0.2761]
+# mean = [0.5071, 0.4867, 0.4408]
+# std = [0.2675, 0.2565, 0.2761]
 
 
 train_transform = transforms.Compose([
@@ -137,90 +142,127 @@ test_loader = DataLoader(test_dataset, batch_size=100, shuffle=False, num_worker
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Model definition
-class ResidualBlock(nn.Module):
-    def __init__(self, channels):
-        super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(channels)
-        self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(channels)
-    
-    def forward(self, x):
-        identity = x
-        out = self.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += identity
-        out = self.relu(out)
-        return out
+class Bottleneck(nn.Module):
+    expansion = 4   # 4 times channels
 
-class DownsampleBlock(nn.Module):
-    def __init__(self, in_channels, out_channels):
-        super(DownsampleBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2, bias=False)
-        self.bn1 = nn.BatchNorm2d(out_channels)
-        self.relu = nn.ReLU(inplace=True)
-        
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(out_channels)
-        self.conv3 = nn.Conv2d(out_channels, out_channels, kernel_size=1, bias=False)
+    def __init__(self, in_channels, bottleneck_channels, stride=1):
+        super(Bottleneck, self).__init__()
+
+        out_channels = bottleneck_channels * self.expansion
+
+        self.conv1 = nn.Conv2d(in_channels, bottleneck_channels, kernel_size=1, stride=stride, bias=False)
+        self.bn1 = nn.BatchNorm2d(bottleneck_channels)
+
+        self.conv2 = nn.Conv2d(bottleneck_channels, bottleneck_channels, kernel_size=3, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(bottleneck_channels)
+
+        self.conv3 = nn.Conv2d(bottleneck_channels, out_channels, kernel_size=1, bias=False)
         self.bn3 = nn.BatchNorm2d(out_channels)
-        
-        self.shortcut = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2, bias=False),
-            nn.BatchNorm2d(out_channels)
-        ) 
+
+        # Shortcut
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_channels != out_channels:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(out_channels),
+            )
+
+        self.relu = nn.ReLU(inplace=True)
+
     def forward(self, x):
         identity = self.shortcut(x)
+
         out = self.relu(self.bn1(self.conv1(x)))
         out = self.relu(self.bn2(self.conv2(out)))
         out = self.bn3(self.conv3(out))
+
         out += identity
         out = self.relu(out)
         return out
 
-class CustomCNN(nn.Module):
+
+class BottleneckDownsample(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(BottleneckDownsample, self).__init__()
+
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2, bias=False)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        self.conv3 = nn.Conv2d(out_channels, out_channels, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(out_channels)
+
+        self.shortcut = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=2, bias=False),
+            nn.BatchNorm2d(out_channels)
+        )
+
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        identity = self.shortcut(x)
+
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.relu(self.bn2(self.conv2(out)))
+        out = self.bn3(self.conv3(out))
+
+        out += identity
+        out = self.relu(out)
+        return out
+
+
+class CustomResNet(nn.Module):
     def __init__(self, num_classes):
-        super(CustomCNN, self).__init__()
+        super(CustomResNet, self).__init__()
+
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
-        
-        self.layer1 = self._make_layer(ResidualBlock, 64, 2)
-        
-        self.layer2_down = DownsampleBlock(64, 128)
-        self.layer2 = self._make_layer(ResidualBlock, 128, 2)
-        self.layer3_down = DownsampleBlock(128, 256)
-        self.layer3 = self._make_layer(ResidualBlock, 256, 2)
-        self.layer4_down = DownsampleBlock(256, 512)
-        self.layer4 = self._make_layer(ResidualBlock, 512, 2)
-        
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512, num_classes)
-    
-    def _make_layer(self, block, channels, num_blocks):
-        layers = [block(channels) for _ in range(num_blocks)]
+
+        # Top (64 filters → output 256)
+        self.layer1 = self._make_layer(64, 64, num_blocks=2, stride=1)
+
+        # Middle (128 filters → output 512)
+        self.layer2 = self._make_layer(256, 128, num_blocks=2, stride=2)
+
+        # Middle (256 filters → output 1024)
+        self.layer3 = self._make_layer(512, 256, num_blocks=2, stride=2)
+
+        # Bottom (512 filters → output 2048)
+        self.layer4 = self._make_layer(1024, 512, num_blocks=2, stride=2)
+
+        self.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.fc = nn.Linear(2048, num_classes)
+
+    def _make_layer(self, in_channels, bottleneck_channels, num_blocks, stride):
+        layers = []
+        layers.append(Bottleneck(in_channels, bottleneck_channels, stride))
+
+        out_channels = bottleneck_channels * Bottleneck.expansion
+        for _ in range(1, num_blocks):
+            layers.append(Bottleneck(out_channels, bottleneck_channels, stride=1))
+
         return nn.Sequential(*layers)
-    
+
     def forward(self, x):
         x = self.relu(self.bn1(self.conv1(x)))
         x = self.layer1(x)
-        x = self.layer2_down(x)
         x = self.layer2(x)
-        x = self.layer3_down(x)
         x = self.layer3(x)
-        x = self.layer4_down(x)
         x = self.layer4(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.fc(x)
         return x
 
+
 if __name__ == "__main__":
     # Model, Loss, Optimizer, Scheduler
-    custom_resnet_model = CustomCNN(total_classes).to(device)
+    custom_resnet_model = CustomResNet(total_classes).to(device)
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(custom_resnet_model.parameters(), lr=0.05, momentum=0.9)
+    optimizer = optim.SGD(custom_resnet_model.parameters(), lr=0.1, momentum=0.9, weight_decay=5e-4)
     scheduler = MultiStepLR(optimizer, milestones=[100, 150], gamma=0.1)
 
     # Training loop
@@ -274,25 +316,26 @@ if __name__ == "__main__":
                 # save
                 if val_accuracy > best_val_accuracy:
                     best_val_accuracy = val_accuracy
-                    torch.save(custom_resnet_model.state_dict(), "cifar100_best_model.pth")
+                    torch.save(custom_resnet_model.state_dict(), "cifar10_best_model.pth")
                     print(f"New best accuracy: {best_val_accuracy:.2f}%, model saved.")
                 else:
                     print(f"No improvement (Best: {best_val_accuracy:.2f}%)")
 
     elif mode == "test":
-        custom_resnet_model.load_state_dict(torch.load("cifar100_best_model.pth"))
+        # 使用正確的模型權重
+        custom_resnet_model.load_state_dict(torch.load("cifar10_best_model.pth"))
         custom_resnet_model.eval()
+
+        class_names = sorted(os.listdir(train_path))
 
         predictions = []
 
-        #  class_names in train_dataset
-        class_names = train_dataset.class_names
-
         with torch.no_grad():
-            for file_name in os.listdir(actualtest_path):
-                file_path = os.path.join(actualtest_path, file_name)
+            for file_name in sorted(os.listdir(actualtest_path)):
                 if not file_name.endswith(".png"):
                     continue
+
+                file_path = os.path.join(actualtest_path, file_name)
 
                 img = Image.open(file_path).convert("RGB")
                 img = test_transform(img)
@@ -305,14 +348,15 @@ if __name__ == "__main__":
                 predicted_label = class_names[predicted_idx]
 
                 img_id = os.path.splitext(file_name)[0]
-
                 predictions.append((img_id, predicted_label))
 
+        # 寫入結果
         with open(result_file_path, "w") as f:
             for img_id, label in predictions:
                 f.write(f"{img_id} {label}\n")
 
         print(f"Predictions saved to {result_file_path}")
+
 
 
     
