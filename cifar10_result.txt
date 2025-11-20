@@ -1,0 +1,10 @@
+0001 bird
+0002 frog
+0003 frog
+0004 frog
+0005 bird
+0006 dog
+0007 frog
+0008 horse
+0009 ship
+0010 horse

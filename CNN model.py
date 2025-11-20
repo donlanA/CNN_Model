@@ -10,11 +10,6 @@ from collections import Counter
 os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
 
 ## Paths
-# train_path = r".\mnist_png\training"
-# test_path = r".\mnist_png\testing"
-# actualtest_path = r".\mnist_png\actualtest"
-# result_file_path = f"mnist_result.txt"
-
 train_path = r".\cifar10\train"
 test_path = r".\cifar10\test"
 actualtest_path = r".\cifar10\actualtest"
@@ -25,78 +20,32 @@ result_file_path = f"cifar10_result.txt"
 # actualtest_path = r".\CIFAR100\ACTUALTEST"
 # result_file_path = f"cifar100_result.txt"
 
-# train_path = r".\CIFAR100_2levels\TRAIN"
-# test_path = r".\CIFAR100_2levels\TEST"
-# actualtest_path = r".\CIFAR100_2levels\ACTUALTEST"
-# result_file_path = f"cifar100_2levels_result.txt"
-
 ## Parameters
 total_classes = 10
-folder_level = 1
-num_epochs = 10
+num_epochs = 200
 
 ## Mode change
 mode = "train"
 
 ## Loading data
 class CustomImageDataset(Dataset):
-    def __init__(self, img_dir, transform=None, folder_level=1):
+    def __init__(self, img_dir, transform=None):
 
         self.img_dir = img_dir
         self.transform = transform
         
         self.img_files = []
         self.labels = []
-
-        if folder_level == 1:
-            class_names = sorted(os.listdir(img_dir))
-            for label, class_name in enumerate(class_names):
-                class_dir = os.path.join(img_dir, class_name)
-                if os.path.isdir(class_dir):
-                    for img_name in os.listdir(class_dir):
-                        if img_name.endswith('.png'):
-                            self.img_files.append(os.path.join(class_dir, img_name))
-                            self.labels.append(label)
-
-        # elif folder_level == 2:
-        #     self.class_names = []
-
-        #     super_classes = sorted([
-        #         d for d in os.listdir(img_dir)
-        #         if os.path.isdir(os.path.join(img_dir, d))
-        #     ])
-
-        #     for super_class in super_classes:
-        #         super_path = os.path.join(img_dir, super_class)
-        #         sub_classes = sorted([
-        #             d for d in os.listdir(super_path)
-        #             if os.path.isdir(os.path.join(super_path, d))
-        #         ])
-        #         for sub in sub_classes:
-        #             if sub not in self.class_names:
-        #                 self.class_names.append(sub)
-
-        #     class_to_idx = {name: idx for idx, name in enumerate(self.class_names)}
-
-        #     for super_class in super_classes:
-        #         super_path = os.path.join(img_dir, super_class)
-        #         sub_classes = sorted([
-        #             d for d in os.listdir(super_path)
-        #             if os.path.isdir(os.path.join(super_path, d))
-        #         ])
-
-        #         for sub in sub_classes:
-        #             sub_path = os.path.join(super_path, sub)
-        #             label = class_to_idx[sub]
-
-        #             for img_name in os.listdir(sub_path):
-        #                 if img_name.endswith(".png"):
-        #                     self.img_files.append(os.path.join(sub_path, img_name))
-        #                     self.labels.append(label)
-        # else:
-        #     raise ValueError("folder_level must be 1 or 2")
         
-        # self.class_names = list(self.class_names)
+        
+        class_names = sorted(os.listdir(img_dir))
+        for label, class_name in enumerate(class_names):
+            class_dir = os.path.join(img_dir, class_name)
+            if os.path.isdir(class_dir):
+                for img_name in os.listdir(class_dir):
+                    if img_name.endswith('.png'):
+                        self.img_files.append(os.path.join(class_dir, img_name))
+                        self.labels.append(label)
 
     def __len__(self):
         return len(self.img_files)
@@ -133,8 +82,8 @@ test_transform = transforms.Compose([
 ])
                 
 # datasets, dataloaders
-train_dataset = CustomImageDataset(img_dir=train_path, transform=train_transform, folder_level=folder_level)
-test_dataset = CustomImageDataset(img_dir=test_path, transform=test_transform, folder_level=folder_level)
+train_dataset = CustomImageDataset(img_dir=train_path, transform=train_transform)
+test_dataset = CustomImageDataset(img_dir=test_path, transform=test_transform)
 train_loader = DataLoader(train_dataset, batch_size=128, shuffle=True, num_workers=2)
 test_loader = DataLoader(test_dataset, batch_size=100, shuffle=False, num_workers=2)
 
@@ -322,7 +271,6 @@ if __name__ == "__main__":
                     print(f"No improvement (Best: {best_val_accuracy:.2f}%)")
 
     elif mode == "test":
-        # 使用正確的模型權重
         custom_resnet_model.load_state_dict(torch.load("cifar10_best_model.pth"))
         custom_resnet_model.eval()
 
@@ -350,7 +298,7 @@ if __name__ == "__main__":
                 img_id = os.path.splitext(file_name)[0]
                 predictions.append((img_id, predicted_label))
 
-        # 寫入結果
+        # Save predictions to file
         with open(result_file_path, "w") as f:
             for img_id, label in predictions:
                 f.write(f"{img_id} {label}\n")
